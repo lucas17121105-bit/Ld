@@ -1,0 +1,112 @@
+{
+  "app_name": "VôleiPro",
+  "personality": "7 Dark-First Utility",
+  "personality_one_liner": "A sharp, performance-oriented command center with athletic warmth, built for live tracking and focused video training.",
+  "color": {
+    "surface": "#121212", 
+    "onSurface": "#FFFFFF",
+    "surfaceSecondary": "#1E1E1E", 
+    "onSurfaceSecondary": "#E0E0E0",
+    "surfaceTertiary": "#2A2A2A", 
+    "onSurfaceTertiary": "#B3B3B3",
+    "surfaceInverse": "#FFFFFF", 
+    "onSurfaceInverse": "#121212",
+    "brand": "#FF6B00",
+    "brandPrimary": "#FF6B00", 
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#E65C00", 
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#3A1E08", 
+    "onBrandTertiary": "#FF9D5C",
+    "success": "#2E7D32", 
+    "onSuccess": "#FFFFFF",
+    "warning": "#F57C00", 
+    "onWarning": "#FFFFFF",
+    "error": "#D32F2F", 
+    "onError": "#FFFFFF",
+    "info": "#1976D2", 
+    "onInfo": "#FFFFFF",
+    "border": "#2A2A2A", 
+    "borderStrong": "#404040", 
+    "divider": "#1E1E1E"
+  },
+  "typography": {
+    "displayFontFamily": "Barlow Condensed",
+    "textFontFamily": "Satoshi",
+    "scale": { "sm": 12, "base": 14, "lg": 16, "xl": 20, "2xl": 24 }
+  },
+  "spacing": { 
+    "rule": "Dense but scannable. Use smaller gaps inside metrics or sets, and larger padding around main cards and sections. Zero accidental whitespace.", 
+    "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "2xl": 32, "3xl": 48 
+  },
+  "radius_tokens": { "sm": 6, "md": 12, "lg": 20, "pill": 999 },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": false,
+    "do's": ["Use solid surfaceSecondary and tonal dividers instead of blur for clarity on dense data screens"],
+    "dont's": ["No glass on bottom tabs or nav headers - keep it sharp and tactical per personality"]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    { 
+      "name": "Treino do Dia (Home)", 
+      "purpose": "A focused dashboard showing today's personalized plan and quick start action.", 
+      "states": { "loading": "Centered spinner", "empty": "Illustration of court + 'Nenhum treino hoje, descanse!' + CTA to library", "error": "Erro ao carregar treino + Retry" },
+      "layout": "Header with user greeting. Hero card at top for 'Treino Atual' with full-bleed background image and gradient scrim, orange primary CTA sticky at bottom. Below hero: list of today's exercises (compact rows with small video thumbnails)." 
+    },
+    { 
+      "name": "Biblioteca", 
+      "purpose": "Video library catalog for all volleyball techniques and conditioning exercises.", 
+      "states": { "loading": "Skeleton grid", "empty": "Nenhum exercício encontrado nesta categoria", "error": "Erro ao carregar vídeos + Retry" },
+      "layout": "Sticky horizontal chip row at the top for filters (Saque, Manchete, Toque, Ataque, Bloqueio, Condicionamento). Below: 2-column card grid of exercises. Each card has a video thumbnail, play icon overlay, title, and duration." 
+    },
+    { 
+      "name": "Progresso", 
+      "purpose": "Tracks completed workouts and technique improvement over time.", 
+      "states": { "loading": "Skeleton stats", "empty": "Comece a treinar para ver suas estatísticas aqui", "error": "Erro ao carregar progresso + Retry" },
+      "layout": "Top section: High-impact condensed typography showing key metrics (Treinos Concluídos, Horas). Below: A simple bar chart or list of recent activity (Workout history)." 
+    },
+    { 
+      "name": "Admin Web Panel (Exercises & Students)", 
+      "purpose": "Web interface to manage the video library and assign plans to students.", 
+      "states": { "loading": "Table skeleton", "empty": "Nenhum aluno/exercício cadastrado", "error": "Erro de conexão + Retry" },
+      "layout": "Sidebar navigation (web). Data tables for students and exercises with search and filter. Modal or dedicated form page for uploading video links (YouTube/Vimeo) and assigning plans. Retains the dark theme but uses wider, dashboard-style data grids." 
+    }
+  ],
+  "images": {
+    "hero_home_workout": { 
+      "url": "https://images.unsplash.com/photo-1765910226872-e8811bd45d3e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwyfHxpbmRvb3IlMjB2b2xsZXliYWxsJTIwc3Bpa2UlMjBhY3Rpb258ZW58MHx8fHwxNzgxMzgxNTk2fDA&ixlib=rb-4.1.0&q=85", 
+      "alt": "Men playing volleyball at the net, spiking action" 
+    },
+    "category_saque": { 
+      "url": "https://images.unsplash.com/photo-1686753767715-37cb0c34212c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHwzfHx2b2xsZXliYWxsJTIwcGxheWVyJTIwdHJhaW5pbmclMjB3b3Jrb3V0fGVufDB8fHx8MTc4MTM4MTU5Nnww&ixlib=rb-4.1.0&q=85", 
+      "alt": "Woman reaching up to hit a volleyball" 
+    },
+    "category_condicionamento": { 
+      "url": "https://images.unsplash.com/photo-1548690312-e3b507d8c110?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzV8MHwxfHNlYXJjaHwxfHxneW0lMjBjb25kaXRpb25pbmclMjBmaXRuZXNzJTIwYXRobGV0ZXxlbnwwfHx8fDE3ODEzODE1OTd8MA&ixlib=rb-4.1.0&q=85", 
+      "alt": "Woman holding black rope for conditioning" 
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the Dark-First Utility personality: use #121212 for the background, NO BLUE/PURPLE hues. Warm athletic orange (#FF6B00) is the sole accent.",
+    "Web admin panel routes MUST use the same design system and Expo Router, adapting to wider viewports (sidebar nav + data tables instead of bottom tabs).",
+    "Use Barlow Condensed for large metrics, section titles, and score-like stats. Use Satoshi for standard labels, body text, and table data.",
+    "Implement a horizontal ScrollView with chips (`surfaceSecondary` or `brandTertiary` background when selected) for the Exercise Library categories.",
+    "Every video card must have an image thumbnail using expo-image, an overlaid play icon, and a vertical gradient scrim to ensure text contrast at the bottom.",
+    "Ensure 'Marcar como concluído' (Mark as completed) buttons use the `brandPrimary` color and are full-width or sticky at the bottom for workout plans.",
+    "Use Phosphor icons consistently, weight: bold or regular, matching the sharp athletic vibe."
+  ]
+}

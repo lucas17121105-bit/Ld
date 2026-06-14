@@ -3,6 +3,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import DuplicateKeyError
 import os
 import logging
 import uuid
@@ -52,6 +53,7 @@ class User(BaseModel):
     picture: Optional[str] = None
     role: Literal["student", "admin"] = "student"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_reset_at: Optional[datetime] = None
 
 
 class Category(BaseModel):
@@ -121,6 +123,13 @@ class ProgressEntry(BaseModel):
 class ProgressCreate(BaseModel):
     exercise_id: str
     plan_id: Optional[str] = None
+
+
+class StreakEntry(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    week_start: datetime
 
 
 # ============ HELPERS ============
@@ -225,6 +234,7 @@ async def on_startup():
     await db.exercises.create_index("category")
     await db.training_plans.create_index("student_id")
     await db.progress.create_index([("user_id", 1), ("completed_at", -1)])
+    await db.streaks.create_index([("user_id", 1), ("week_start", -1)])
 
     # Seed sample exercises if empty
     count = await db.exercises.count_documents({})
@@ -495,6 +505,69 @@ async def student_progress(user_id: str, admin: dict = Depends(require_admin)):
     items = await db.progress.find({"user_id": user_id}, {"_id": 0}).sort(
         "completed_at", -1
     ).to_list(500)
+    return items
+
+
+# ============ CYCLE & STREAK ============
+async def _compute_cycle(user: dict) -> dict:
+    last_reset = user.get("last_reset_at") or user.get("created_at")
+    last_reset = _normalize_dt(last_reset)
+    progress = await db.progress.find(
+        {
+            "user_id": user["user_id"],
+            "completed_at": {"$gte": last_reset},
+        },
+        {"_id": 0},
+    ).to_list(1000)
+    completed_ids = sorted({p["exercise_id"] for p in progress})
+
+    plans = await db.training_plans.find(
+        {"student_id": user["user_id"], "is_active": True}, {"_id": 0}
+    ).to_list(200)
+    required_ids = sorted({it["exercise_id"] for p in plans for it in p["items"]})
+
+    completed_set = set(completed_ids)
+    all_done = len(required_ids) > 0 and all(rid in completed_set for rid in required_ids)
+    return {
+        "last_reset_at": last_reset,
+        "completed_exercise_ids": completed_ids,
+        "required_exercise_ids": required_ids,
+        "all_done": all_done,
+        "active_plan_count": len(plans),
+    }
+
+
+@api_router.get("/cycle/me")
+async def get_cycle(user: dict = Depends(get_current_user)):
+    return await _compute_cycle(user)
+
+
+@api_router.post("/streak/complete-week")
+async def complete_week(user: dict = Depends(get_current_user)):
+    cycle = await _compute_cycle(user)
+    if not cycle["all_done"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Ainda há exercícios pendentes nos seus treinos ativos.",
+        )
+    now = datetime.now(timezone.utc)
+    week_start = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    entry = StreakEntry(user_id=user["user_id"], completed_at=now, week_start=week_start)
+    await db.streaks.insert_one(entry.model_dump())
+    await db.users.update_one(
+        {"user_id": user["user_id"]}, {"$set": {"last_reset_at": now}}
+    )
+    total = await db.streaks.count_documents({"user_id": user["user_id"]})
+    return {"entry": entry.model_dump(), "total_streaks": total}
+
+
+@api_router.get("/streak/me")
+async def streak_me(user: dict = Depends(get_current_user)):
+    items = await db.streaks.find(
+        {"user_id": user["user_id"]}, {"_id": 0}
+    ).sort("week_start", -1).to_list(60)
     return items
 
 

@@ -66,8 +66,16 @@ export default function ExerciseDetail() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const data = await api<Exercise>(`/exercises/${id}`);
+      const [data, cycle] = await Promise.all([
+        api<Exercise>(`/exercises/${id}`),
+        api<{ completed_exercise_ids: string[] }>("/cycle/me").catch(() => ({
+          completed_exercise_ids: [],
+        })),
+      ]);
       setEx(data);
+      if (cycle.completed_exercise_ids.includes(id)) {
+        setDone(true);
+      }
     } finally {
       setLoading(false);
     }

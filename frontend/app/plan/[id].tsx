@@ -39,19 +39,24 @@ export default function PlanDetail() {
   const insets = useSafeAreaInsets();
   const [plan, setPlan] = useState<Plan | null>(null);
   const [exMap, setExMap] = useState<Record<string, Exercise>>({});
+  const [completedSet, setCompletedSet] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [p, ex] = await Promise.all([
+      const [p, ex, cycle] = await Promise.all([
         api<Plan>(`/plans/${id}`),
         api<Exercise[]>("/exercises"),
+        api<{ completed_exercise_ids: string[] }>("/cycle/me").catch(() => ({
+          completed_exercise_ids: [],
+        })),
       ]);
       setPlan(p);
       const m: Record<string, Exercise> = {};
       ex.forEach((e) => (m[e.id] = e));
       setExMap(m);
+      setCompletedSet(new Set(cycle.completed_exercise_ids));
     } finally {
       setLoading(false);
     }
@@ -125,6 +130,7 @@ export default function PlanDetail() {
           {plan.items.map((item, idx) => {
             const ex = exMap[item.exercise_id];
             if (!ex) return null;
+            const done = completedSet.has(ex.id);
             return (
               <Pressable
                 key={`${item.exercise_id}-${idx}`}
@@ -132,11 +138,16 @@ export default function PlanDetail() {
                 onPress={() => router.push(`/exercise/${ex.id}`)}
                 style={({ pressed }) => [
                   styles.exRow,
+                  done && styles.exRowDone,
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <View style={styles.exIndex}>
-                  <Text style={styles.exIndexText}>{idx + 1}</Text>
+                <View style={[styles.exIndex, done && styles.exIndexDone]}>
+                  {done ? (
+                    <Ionicons name="checkmark" size={18} color="#fff" />
+                  ) : (
+                    <Text style={styles.exIndexText}>{idx + 1}</Text>
+                  )}
                 </View>
                 <Image
                   source={{ uri: ex.thumbnail_url ?? undefined }}
@@ -156,7 +167,11 @@ export default function PlanDetail() {
                     </Text>
                   ) : null}
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.onSurface} />
+                {done ? (
+                  <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color={colors.onSurface} />
+                )}
               </Pressable>
             );
           })}
@@ -230,6 +245,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  exRowDone: {
+    backgroundColor: "#E8F5E9",
+    borderColor: colors.success,
+  },
   exIndex: {
     width: 28,
     height: 28,
@@ -238,6 +257,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  exIndexDone: { backgroundColor: colors.success },
   exIndexText: { color: colors.onSurface, fontWeight: "900", fontSize: 13 },
   exThumb: {
     width: 64,

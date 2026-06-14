@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,7 +9,6 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -19,15 +17,6 @@ import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/theme/tokens";
 
-type Exercise = {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  video_url?: string | null;
-  thumbnail_url?: string | null;
-  duration_seconds: number;
-};
 type PlanItem = { exercise_id: string; sets: number; reps: number; notes: string };
 type Plan = {
   id: string;
@@ -35,6 +24,7 @@ type Plan = {
   description: string;
   items: PlanItem[];
   is_active: boolean;
+  created_at?: string;
 };
 
 export default function HomeScreen() {
@@ -42,20 +32,13 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [exMap, setExMap] = useState<Record<string, Exercise>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [p, ex] = await Promise.all([
-        api<Plan[]>("/plans/me"),
-        api<Exercise[]>("/exercises"),
-      ]);
+      const p = await api<Plan[]>("/plans/me");
       setPlans(p);
-      const m: Record<string, Exercise> = {};
-      ex.forEach((e) => (m[e.id] = e));
-      setExMap(m);
     } catch (e) {
       console.warn(e);
     } finally {
@@ -68,7 +51,8 @@ export default function HomeScreen() {
     load();
   }, [load]);
 
-  const activePlan = plans.find((p) => p.is_active) ?? plans[0];
+  const activePlans = plans.filter((p) => p.is_active);
+  const inactivePlans = plans.filter((p) => !p.is_active);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]} testID="home-screen">
@@ -86,7 +70,7 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.hi}>Olá,</Text>
             <Text style={styles.name} numberOfLines={1}>
               {user?.name?.split(" ")[0] ?? "Atleta"}
@@ -103,30 +87,7 @@ export default function HomeScreen() {
 
         {loading ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
-        ) : activePlan ? (
-          <View style={styles.heroWrap}>
-            <Image
-              source={{
-                uri: "https://images.unsplash.com/photo-1765910226872-e8811bd45d3e?w=1200",
-              }}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-            />
-            <LinearGradient
-              colors={["rgba(255,255,255,0.0)", "rgba(0,0,0,0.55)"]}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={styles.heroContent}>
-              <Text style={styles.heroLabel}>SEU TREINO</Text>
-              <Text style={styles.heroTitle} numberOfLines={2}>
-                {activePlan.title}
-              </Text>
-              <Text style={styles.heroSub}>
-                {activePlan.items.length} exercícios
-              </Text>
-            </View>
-          </View>
-        ) : (
+        ) : plans.length === 0 ? (
           <View style={styles.empty} testID="home-empty">
             <Ionicons name="calendar-outline" size={42} color={colors.brand} />
             <Text style={styles.emptyTitle}>Nenhum treino atribuído</Text>
@@ -142,54 +103,105 @@ export default function HomeScreen() {
               <Text style={styles.emptyCtaText}>Ir para Biblioteca</Text>
             </Pressable>
           </View>
-        )}
+        ) : (
+          <>
+            {activePlans.length > 0 ? (
+              <>
+                <Text style={styles.section}>TREINOS ATIVOS</Text>
+                <View style={styles.planList}>
+                  {activePlans.map((p, idx) => (
+                    <PlanCard
+                      key={p.id}
+                      plan={p}
+                      index={idx}
+                      onPress={() => router.push(`/plan/${p.id}`)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
 
-        {activePlan && activePlan.items.length > 0 ? (
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
-            <Text style={styles.sectionTitle}>EXERCÍCIOS DE HOJE</Text>
-            <FlatList
-              data={activePlan.items}
-              scrollEnabled={false}
-              keyExtractor={(item, idx) => `${item.exercise_id}-${idx}`}
-              renderItem={({ item, index }) => {
-                const ex = exMap[item.exercise_id];
-                if (!ex) return null;
-                return (
-                  <Pressable
-                    testID={`plan-item-${index}`}
-                    onPress={() => router.push(`/exercise/${ex.id}`)}
-                    style={({ pressed }) => [
-                      styles.row,
-                      pressed && { opacity: 0.8 },
-                    ]}
-                  >
-                    <Image
-                      source={{ uri: ex.thumbnail_url ?? undefined }}
-                      style={styles.rowThumb}
-                      contentFit="cover"
+            {inactivePlans.length > 0 ? (
+              <>
+                <Text style={styles.section}>HISTÓRICO DE TREINOS</Text>
+                <View style={styles.planList}>
+                  {inactivePlans.map((p, idx) => (
+                    <PlanCard
+                      key={p.id}
+                      plan={p}
+                      index={idx}
+                      onPress={() => router.push(`/plan/${p.id}`)}
+                      dimmed
                     />
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <Text style={styles.rowTitle} numberOfLines={1}>
-                        {ex.title}
-                      </Text>
-                      <Text style={styles.rowMeta}>
-                        {item.sets}x{item.reps} · {ex.category}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="play-circle"
-                      size={28}
-                      color={colors.brand}
-                    />
-                  </Pressable>
-                );
-              }}
-              ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-            />
-          </View>
-        ) : null}
+                  ))}
+                </View>
+              </>
+            ) : null}
+          </>
+        )}
       </ScrollView>
     </View>
+  );
+}
+
+function PlanCard({
+  plan,
+  index,
+  onPress,
+  dimmed = false,
+}: {
+  plan: Plan;
+  index: number;
+  onPress: () => void;
+  dimmed?: boolean;
+}) {
+  const created = plan.created_at
+    ? new Date(plan.created_at).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "short",
+      })
+    : null;
+  return (
+    <Pressable
+      testID={`plan-card-${plan.id}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.planCard,
+        dimmed && styles.planCardDim,
+        pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+      ]}
+    >
+      <View style={styles.planNum}>
+        <Text style={styles.planNumText}>{String(index + 1).padStart(2, "0")}</Text>
+      </View>
+      <View style={{ flex: 1, gap: 4 }}>
+        <Text style={styles.planTitle} numberOfLines={1}>
+          {plan.title}
+        </Text>
+        <View style={styles.planMetaRow}>
+          <Text style={styles.planMeta}>
+            {plan.items.length} exercícios
+          </Text>
+          {created ? (
+            <>
+              <View style={styles.dot} />
+              <Text style={styles.planMeta}>{created}</Text>
+            </>
+          ) : null}
+          {plan.is_active ? (
+            <>
+              <View style={styles.dot} />
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeBadgeText}>ATIVO</Text>
+              </View>
+            </>
+          ) : null}
+        </View>
+      </View>
+      <View style={styles.playWrap}>
+        <Ionicons name="chevron-forward" size={22} color={colors.onSurface} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -205,24 +217,13 @@ const styles = StyleSheet.create({
   },
   hi: { color: colors.onSurfaceTertiary, fontSize: 14 },
   name: { color: colors.onSurface, fontSize: 22, fontWeight: "800" },
-  avatar: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary },
-  avatarFallback: { alignItems: "center", justifyContent: "center" },
-  heroWrap: {
-    marginHorizontal: spacing.lg,
-    height: 220,
-    borderRadius: radius.lg,
-    overflow: "hidden",
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
     backgroundColor: colors.surfaceSecondary,
   },
-  heroContent: {
-    flex: 1,
-    justifyContent: "flex-end",
-    padding: spacing.lg,
-    gap: 4,
-  },
-  heroLabel: { color: "#FFFFFF", fontSize: 12, letterSpacing: 3, fontWeight: "800" },
-  heroTitle: { color: "#FFFFFF", fontSize: 28, fontWeight: "800" },
-  heroSub: { color: "#E0E0E0", fontSize: 14 },
+  avatarFallback: { alignItems: "center", justifyContent: "center" },
   empty: {
     margin: spacing.lg,
     padding: spacing.xl,
@@ -230,8 +231,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     alignItems: "center",
     gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  emptyTitle: { color: colors.onSurface, fontSize: 18, fontWeight: "700", marginTop: spacing.sm },
+  emptyTitle: {
+    color: colors.onSurface,
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: spacing.sm,
+  },
   emptySub: { color: colors.onSurfaceTertiary, fontSize: 14, textAlign: "center" },
   emptyCta: {
     marginTop: spacing.md,
@@ -239,29 +247,60 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
   emptyCtaText: { color: colors.onSurface, fontWeight: "800" },
-  sectionTitle: {
-    color: colors.onSurfaceTertiary,
-    fontSize: 12,
-    letterSpacing: 2,
-    fontWeight: "700",
+  section: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
     marginBottom: spacing.md,
+    color: colors.onSurfaceTertiary,
+    fontSize: 11,
+    letterSpacing: 2,
+    fontWeight: "800",
   },
-  row: {
+  planList: { paddingHorizontal: spacing.lg, gap: spacing.md },
+  planCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.sm,
+    gap: spacing.md,
+    padding: spacing.md,
     backgroundColor: colors.surfaceSecondary,
     borderRadius: radius.md,
-    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    minHeight: 84,
   },
-  rowThumb: {
-    width: 72,
-    height: 56,
+  planCardDim: { opacity: 0.65 },
+  planNum: {
+    width: 44,
+    height: 44,
     borderRadius: radius.sm,
-    backgroundColor: colors.surfaceTertiary,
+    backgroundColor: colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
-  rowTitle: { color: colors.onSurface, fontSize: 15, fontWeight: "600" },
-  rowMeta: { color: colors.onSurfaceTertiary, fontSize: 12 },
+  planNumText: { color: colors.onSurface, fontWeight: "900", fontSize: 16 },
+  planTitle: { color: colors.onSurface, fontSize: 17, fontWeight: "800" },
+  planMetaRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  planMeta: { color: colors.onSurfaceTertiary, fontSize: 12, fontWeight: "600" },
+  dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: colors.onSurfaceTertiary },
+  activeBadge: {
+    backgroundColor: colors.success,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  activeBadgeText: { color: "#fff", fontWeight: "900", fontSize: 10, letterSpacing: 1 },
+  playWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brandTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });
